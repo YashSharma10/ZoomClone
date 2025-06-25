@@ -1,10 +1,10 @@
-// ChatPage.jsx
 import React, { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { useNavigate } from "react-router-dom";
 import API from "../api";
 import socket from "../socket";
 import VideoCall from "./VideoCall";
+import Dashboard from "./Profile"; // ⬅️ Import the popup
 
 import {
   Box,
@@ -18,7 +18,9 @@ import {
   Divider,
   AppBar,
   Toolbar,
+  IconButton,
 } from "@mui/material";
+import PersonIcon from "@mui/icons-material/Person";
 
 export default function ChatPage() {
   const [users, setUsers] = useState([]);
@@ -27,6 +29,7 @@ export default function ChatPage() {
   const [chat, setChat] = useState([]);
   const [message, setMessage] = useState("");
   const [videoCallActive, setVideoCallActive] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false); // ⬅️ State for popup
 
   const navigate = useNavigate();
 
@@ -94,148 +97,173 @@ export default function ChatPage() {
   };
 
   return (
-    <Box sx={{ display: "flex", height: "100vh", bgcolor: "#f5f5f5" }}>
-      {/* Sidebar */}
-      <Box
-        sx={{
-          width: { xs: "100%", md: "25%" },
-          borderRight: "1px solid #ccc",
-          bgcolor: "#fff",
-          p: 2,
-        }}
-      >
-        <Typography variant="h6" fontWeight="bold" gutterBottom>
-          💬 Contacts
-        </Typography>
-
-        <Button
-          variant="contained"
-          fullWidth
-          sx={{ mb: 2, bgcolor: "#7b1fa2", ":hover": { bgcolor: "#6a1b9a" } }}
-          onClick={goToAiChat}
-        >
-          🧐 Chat with AI
-        </Button>
-
-        <List dense>
-          {users
-            .filter((u) => String(u._id) !== String(currentUserId))
-            .map((user) => (
-              <ListItem
-                key={user._id}
-                button
-                selected={selectedUserId === user._id}
-                onClick={() => {
-                  setSelectedUserId(user._id);
-                  setVideoCallActive(false);
-                }}
-              >
-                <ListItemText primary={user.email} />
-              </ListItem>
-            ))}
-        </List>
-      </Box>
-
-      {/* Chat Section */}
-      <Box
-        sx={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          bgcolor: "#e0e0e0",
-        }}
-      >
-        {/* Topbar with Selected User */}
-        <AppBar
-          position="static"
-          sx={{ bgcolor: "#1976d2", color: "white", px: 2 }}
-          elevation={1}
-        >
-          <Toolbar disableGutters>
-            <Typography variant="h6">
-              {selectedUserId
-                ? users.find((u) => u._id === selectedUserId)?.email ||
-                  "Loading..."
-                : "Select a contact"}
-            </Typography>
-          </Toolbar>
-        </AppBar>
-
-        {/* Messages */}
+    <>
+      <Box sx={{ display: "flex", height: "100vh", bgcolor: "#f5f5f5" }}>
+        {/* Sidebar */}
         <Box
           sx={{
-            flex: 1,
-            overflowY: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: 1.5,
+            width: { xs: "100%", md: "25%" },
+            borderRight: "1px solid #ccc",
+            bgcolor: "#fff",
             p: 2,
           }}
         >
-          {chat.map((msg, i) => (
-            <Paper
-              key={i}
-              sx={{
-                alignSelf:
-                  msg.sender._id === currentUserId
-                    ? "flex-end"
-                    : "flex-start",
-                bgcolor:
-                  msg.sender._id === currentUserId ? "#1976d2" : "#ffffff",
-                color:
-                  msg.sender._id === currentUserId ? "#fff" : "text.primary",
-                px: 2,
-                py: 1,
-                borderRadius: 2,
-                maxWidth: "70%",
-              }}
-              elevation={1}
-            >
-              {msg.content}
-            </Paper>
-          ))}
-        </Box>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+            }}
+          >
+            <Typography variant="h6" fontWeight="bold">
+              💬 Contacts
+            </Typography>
+            <IconButton onClick={() => setProfileOpen(true)} color="primary">
+              <PersonIcon />
+            </IconButton>
+          </Box>
 
-        <Divider sx={{ my: 2 }} />
-
-        {/* Input Area */}
-        <Box
-          sx={{
-            display: "flex",
-            gap: 1,
-            flexDirection: { xs: "column", sm: "row" },
-            px: 2,
-            pb: 2,
-          }}
-        >
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Type your message..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            sx={{ bgcolor: "#fff", borderRadius: 1 }}
-          />
           <Button
             variant="contained"
-            onClick={sendMessage}
-            sx={{ bgcolor: "#1976d2", ":hover": { bgcolor: "#1565c0" } }}
+            fullWidth
+            sx={{ mb: 2, bgcolor: "#7b1fa2", ":hover": { bgcolor: "#6a1b9a" } }}
+            onClick={goToAiChat}
           >
-            📩 Send
+            🧐 Chat with AI
           </Button>
-          <Button variant="contained" color="success" onClick={startVideoCall}>
-            📹 Video Call
-          </Button>
+
+          <List dense>
+            {users
+              .filter((u) => String(u._id) !== String(currentUserId))
+              .map((user) => (
+                <ListItem
+                  key={user._id}
+                  button
+                  selected={selectedUserId === user._id}
+                  onClick={() => {
+                    setSelectedUserId(user._id);
+                    setVideoCallActive(false);
+                  }}
+                >
+                  <ListItemText primary={user.email} />
+                </ListItem>
+              ))}
+          </List>
         </Box>
 
-        {videoCallActive && currentUserId && selectedUserId && (
-          <VideoCall
-            currentUserId={currentUserId}
-            selectedUserId={selectedUserId}
-            onClose={() => setVideoCallActive(false)}
-          />
-        )}
+        {/* Chat Section */}
+        <Box
+          sx={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            bgcolor: "#e0e0e0",
+          }}
+        >
+          {/* Topbar with Profile button */}
+          <AppBar
+            position="static"
+            sx={{ bgcolor: "#1976d2", color: "white", px: 2 }}
+            elevation={1}
+          >
+            <Toolbar sx={{ justifyContent: "space-between" }}>
+              <Typography variant="h6">
+                {selectedUserId
+                  ? users.find((u) => u._id === selectedUserId)?.email ||
+                    "Loading..."
+                  : "Select a contact"}
+              </Typography>
+
+              {/* <IconButton color="inherit" onClick={() => setProfileOpen(true)}>
+                <PersonIcon />
+              </IconButton> */}
+            </Toolbar>
+          </AppBar>
+
+          {/* Messages */}
+          <Box
+            sx={{
+              flex: 1,
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 1.5,
+              p: 2,
+            }}
+          >
+            {chat.map((msg, i) => (
+              <Paper
+                key={i}
+                sx={{
+                  alignSelf:
+                    msg.sender._id === currentUserId
+                      ? "flex-end"
+                      : "flex-start",
+                  bgcolor:
+                    msg.sender._id === currentUserId ? "#1976d2" : "#ffffff",
+                  color:
+                    msg.sender._id === currentUserId ? "#fff" : "text.primary",
+                  px: 2,
+                  py: 1,
+                  borderRadius: 2,
+                  maxWidth: "70%",
+                }}
+                elevation={1}
+              >
+                {msg.content}
+              </Paper>
+            ))}
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Input Area */}
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              flexDirection: { xs: "column", sm: "row" },
+              px: 2,
+              pb: 2,
+            }}
+          >
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Type your message..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              sx={{ bgcolor: "#fff", borderRadius: 1 }}
+            />
+            <Button
+              variant="contained"
+              onClick={sendMessage}
+              sx={{ bgcolor: "#1976d2", ":hover": { bgcolor: "#1565c0" } }}
+            >
+              📩 Send
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={startVideoCall}
+            >
+              📹 Video Call
+            </Button>
+          </Box>
+
+          {videoCallActive && currentUserId && selectedUserId && (
+            <VideoCall
+              currentUserId={currentUserId}
+              selectedUserId={selectedUserId}
+              onClose={() => setVideoCallActive(false)}
+            />
+          )}
+        </Box>
       </Box>
-    </Box>
+
+      {/* Profile Popup */}
+      <Dashboard isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
+    </>
   );
 }

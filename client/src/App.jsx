@@ -6,6 +6,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import VideoCall from "./pages/VideoCall";
 import Chat from "./pages/Chat";
 import AiChatPage from "./pages/Aichat";
+import Dashboard from "./pages/Profile";
 
 export default function App() {
   return (
@@ -28,6 +29,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AiChatPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
           </ProtectedRoute>
         }
       />
