@@ -1,6 +1,21 @@
+// AiChatPage.jsx
 import React, { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
+import { useNavigate } from "react-router-dom";
 import API from "../api";
+import {
+  Box,
+  Typography,
+  Button,
+  TextField,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  AppBar,
+  Toolbar,
+} from "@mui/material";
 
 export default function AiChatPage() {
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -9,6 +24,8 @@ export default function AiChatPage() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [selectedChatId, setSelectedChatId] = useState(null);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -22,7 +39,6 @@ export default function AiChatPage() {
     }
   }, []);
 
-  // Fetch chat history
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -48,16 +64,15 @@ export default function AiChatPage() {
 
     try {
       const res = await API.post("/ai-chat", {
-        messages: [
-          { role: "system", content: "You are a helpful AI assistant." },
-          ...updatedChat,
-        ],
+        messages: updatedChat,
       });
 
       const aiReply = res.data.reply;
-      setChat((prev) => [...prev, { role: "assistant", content: aiReply }]);
+      const finalChat = [...updatedChat, { role: "assistant", content: aiReply }];
+      setChat(finalChat);
 
-      // Refresh history after a new chat is stored
+      // Do NOT manually store history here; backend handles it.
+
       const historyRes = await API.get("/ai-chat/history");
       setHistory(historyRes.data);
     } catch (err) {
@@ -72,71 +87,137 @@ export default function AiChatPage() {
     setChat(session.messages);
   };
 
+  const handleNewChat = () => {
+    setSelectedChatId(null);
+    setChat([]);
+    setMessage("");
+  };
+
   return (
-    <div className="flex flex-col md:flex-row h-screen">
-      {/* Sidebar with history */}
-      <div className="w-full md:w-1/4 border-r p-4 overflow-y-auto bg-white">
-        <h2 className="text-xl font-bold mb-4">AI Assistant</h2>
-        <p className="text-sm text-gray-600 mb-4">Past Conversations</p>
+    <Box sx={{ display: "flex", height: "100vh", bgcolor: "#f5f5f5" }}>
+      {/* Sidebar */}
+      <Box
+        sx={{
+          width: { xs: "100%", md: "25%" },
+          borderRight: "1px solid #ccc",
+          bgcolor: "#fff",
+          p: 2,
+        }}
+      >
+        <Typography variant="h6" fontWeight="bold" gutterBottom>
+          🤖 AI Assistant
+        </Typography>
 
-        {history.length === 0 && (
-          <p className="text-gray-500 text-sm">No past chats yet.</p>
-        )}
+        <Button
+          variant="outlined"
+          fullWidth
+          onClick={() => navigate("/chat")}
+          sx={{ mb: 1 }}
+        >
+          🔙 Back to Chat
+        </Button>
 
-        <div className="space-y-2">
-          {history.map((session) => (
-            <div
-              key={session._id}
-              onClick={() => handleSelectHistory(session)}
-              className={`cursor-pointer p-2 rounded text-sm border ${
-                selectedChatId === session._id ? "bg-purple-100" : "hover:bg-gray-100"
-              }`}
-            >
-              {new Date(session.createdAt).toLocaleString()}
-            </div>
-          ))}
-        </div>
-      </div>
+        <Button
+          variant="contained"
+          fullWidth
+          onClick={handleNewChat}
+          sx={{ mb: 2, bgcolor: "#1976d2" }}
+        >
+          ✨ New Chat
+        </Button>
+
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          Past Conversations
+        </Typography>
+
+        <List dense>
+          {history.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No past chats yet.
+            </Typography>
+          ) : (
+            history.map((session) => (
+              <ListItem
+                key={session._id}
+                button
+                selected={selectedChatId === session._id}
+                onClick={() => handleSelectHistory(session)}
+              >
+                <ListItemText
+                  primary={new Date(session.createdAt).toLocaleString()}
+                />
+              </ListItem>
+            ))
+          )}
+        </List>
+      </Box>
 
       {/* Chat Section */}
-      <div className="flex-1 p-2 md:p-4 flex flex-col bg-gray-100">
-        <div className="flex-1 overflow-y-auto rounded p-2 md:p-4 space-y-2">
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          bgcolor: "#e0e0e0",
+        }}
+      >
+        <AppBar
+          position="static"
+          sx={{ bgcolor: "#1976d2", color: "white", px: 2 }}
+          elevation={1}
+        >
+          <Toolbar disableGutters>
+            <Typography variant="h6">AI Chat</Typography>
+          </Toolbar>
+        </AppBar>
+
+        <Box sx={{ flex: 1, p: 2, overflowY: "auto", display: "flex", flexDirection: "column", gap: 1.5 }}>
           {chat.map((msg, index) => (
-            <div
+            <Paper
               key={index}
-              className={`p-2 rounded-md w-fit max-w-[80%] ${
-                msg.role === "user"
-                  ? "ml-auto bg-blue-500 text-white"
-                  : "bg-gray-300 text-black"
-              }`}
+              sx={{
+                alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                bgcolor: msg.role === "user" ? "#1976d2" : "#ffffff",
+                color: msg.role === "user" ? "#fff" : "text.primary",
+                px: 2,
+                py: 1,
+                borderRadius: 2,
+                maxWidth: "70%",
+              }}
+              elevation={1}
             >
               {msg.content}
-            </div>
+            </Paper>
           ))}
 
           {loading && (
-            <div className="bg-gray-300 text-black p-2 rounded-md w-fit">
+            <Paper sx={{ bgcolor: "#fff", px: 2, py: 1, borderRadius: 2 }}>
               AI is thinking...
-            </div>
+            </Paper>
           )}
-        </div>
+        </Box>
 
-        <div className="flex flex-col sm:flex-row gap-2 mt-4">
-          <input
-            className="flex-1 border px-3 py-2 rounded"
+        <Divider />
+
+        <Box sx={{ p: 2, display: "flex", gap: 1, flexDirection: { xs: "column", sm: "row" } }}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Ask something..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Ask something..."
+            sx={{ bgcolor: "#fff", borderRadius: 1 }}
           />
-          <button
+          <Button
+            variant="contained"
             onClick={sendMessage}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
             disabled={loading}
+            sx={{ bgcolor: "#1976d2", ":hover": { bgcolor: "#1565c0" } }}
           >
             Send
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </Box>
+      </Box>
+    </Box>
   );
 }

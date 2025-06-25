@@ -29,7 +29,7 @@ export const handleAiChat = async (req, res) => {
         body: JSON.stringify({
           model: "openai/gpt-4",
           messages,
-          max_tokens: 512,
+          max_tokens: 200,
         }),
       }
     );

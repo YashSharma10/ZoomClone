@@ -1,9 +1,24 @@
+// ChatPage.jsx
 import React, { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { useNavigate } from "react-router-dom";
 import API from "../api";
 import socket from "../socket";
 import VideoCall from "./VideoCall";
+
+import {
+  Box,
+  Typography,
+  Button,
+  TextField,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  AppBar,
+  Toolbar,
+} from "@mui/material";
 
 export default function ChatPage() {
   const [users, setUsers] = useState([]);
@@ -36,7 +51,6 @@ export default function ChatPage() {
         console.error(err);
       }
     };
-
     fetchUsers();
   }, []);
 
@@ -80,75 +94,139 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen">
+    <Box sx={{ display: "flex", height: "100vh", bgcolor: "#f5f5f5" }}>
       {/* Sidebar */}
-      <div className="w-full md:w-1/4 border-r p-4 overflow-y-auto bg-white flex flex-col">
-        <h2 className="text-xl font-bold mb-4">Contacts</h2>
+      <Box
+        sx={{
+          width: { xs: "100%", md: "25%" },
+          borderRight: "1px solid #ccc",
+          bgcolor: "#fff",
+          p: 2,
+        }}
+      >
+        <Typography variant="h6" fontWeight="bold" gutterBottom>
+          💬 Contacts
+        </Typography>
 
-        <button
+        <Button
+          variant="contained"
+          fullWidth
+          sx={{ mb: 2, bgcolor: "#7b1fa2", ":hover": { bgcolor: "#6a1b9a" } }}
           onClick={goToAiChat}
-          className="mb-4 px-3 py-2 bg-purple-600 text-white rounded text-sm"
         >
-          🤖 Chat with AI
-        </button>
+          🧐 Chat with AI
+        </Button>
 
-        <div className="space-y-2">
+        <List dense>
           {users
             .filter((u) => String(u._id) !== String(currentUserId))
             .map((user) => (
-              <div
+              <ListItem
                 key={user._id}
+                button
+                selected={selectedUserId === user._id}
                 onClick={() => {
                   setSelectedUserId(user._id);
                   setVideoCallActive(false);
                 }}
-                className={`cursor-pointer p-2 rounded ${
-                  selectedUserId === user._id ? "bg-blue-100" : ""
-                }`}
               >
-                {user.email}
-              </div>
+                <ListItemText primary={user.email} />
+              </ListItem>
             ))}
-        </div>
-      </div>
+        </List>
+      </Box>
 
       {/* Chat Section */}
-      <div className="flex-1 p-2 md:p-4 flex flex-col bg-gray-100">
-        <div className="flex-1 overflow-y-auto rounded p-2 md:p-4 space-y-2">
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          bgcolor: "#e0e0e0",
+        }}
+      >
+        {/* Topbar with Selected User */}
+        <AppBar
+          position="static"
+          sx={{ bgcolor: "#1976d2", color: "white", px: 2 }}
+          elevation={1}
+        >
+          <Toolbar disableGutters>
+            <Typography variant="h6">
+              {selectedUserId
+                ? users.find((u) => u._id === selectedUserId)?.email ||
+                  "Loading..."
+                : "Select a contact"}
+            </Typography>
+          </Toolbar>
+        </AppBar>
+
+        {/* Messages */}
+        <Box
+          sx={{
+            flex: 1,
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 1.5,
+            p: 2,
+          }}
+        >
           {chat.map((msg, i) => (
-            <div
+            <Paper
               key={i}
-              className={`p-2 rounded-md w-fit max-w-[80%] ${
-                msg.sender._id === currentUserId
-                  ? "ml-auto bg-blue-500 text-white"
-                  : "bg-gray-300 text-black"
-              }`}
+              sx={{
+                alignSelf:
+                  msg.sender._id === currentUserId
+                    ? "flex-end"
+                    : "flex-start",
+                bgcolor:
+                  msg.sender._id === currentUserId ? "#1976d2" : "#ffffff",
+                color:
+                  msg.sender._id === currentUserId ? "#fff" : "text.primary",
+                px: 2,
+                py: 1,
+                borderRadius: 2,
+                maxWidth: "70%",
+              }}
+              elevation={1}
             >
               {msg.content}
-            </div>
+            </Paper>
           ))}
-        </div>
+        </Box>
 
-        <div className="flex flex-col sm:flex-row gap-2 mt-4">
-          <input
-            className="flex-1 border px-3 py-2 rounded"
+        <Divider sx={{ my: 2 }} />
+
+        {/* Input Area */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            flexDirection: { xs: "column", sm: "row" },
+            px: 2,
+            pb: 2,
+          }}
+        >
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Type your message..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type your message..."
+            sx={{ bgcolor: "#fff", borderRadius: 1 }}
           />
-          <button
+          <Button
+            variant="contained"
             onClick={sendMessage}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
+            sx={{ bgcolor: "#1976d2", ":hover": { bgcolor: "#1565c0" } }}
           >
-            Send
-          </button>
-          <button
-            onClick={startVideoCall}
-            className="bg-green-600 text-white px-4 py-2 rounded"
-          >
+            📩 Send
+          </Button>
+          <Button variant="contained" color="success" onClick={startVideoCall}>
             📹 Video Call
-          </button>
-        </div>
+          </Button>
+        </Box>
 
         {videoCallActive && currentUserId && selectedUserId && (
           <VideoCall
@@ -157,7 +235,7 @@ export default function ChatPage() {
             onClose={() => setVideoCallActive(false)}
           />
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
