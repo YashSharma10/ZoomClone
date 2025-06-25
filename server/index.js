@@ -8,6 +8,7 @@ import http from "http";
 import authRoutes from "./routes/authRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import userRoutes from "./routes/userRoute.js";
+import aiChatRoutes from "./routes/aiChatRoutes.js";
 import { initSocket } from "./socket.js";
 
 dotenv.config();
@@ -22,6 +23,8 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/ai-chat", aiChatRoutes);
+
 
 // Initialize Socket.IO
 initSocket(server);

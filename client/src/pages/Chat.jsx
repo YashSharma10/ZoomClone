@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
+import { useNavigate } from "react-router-dom";
 import API from "../api";
 import socket from "../socket";
 import VideoCall from "./VideoCall";
@@ -11,6 +12,8 @@ export default function ChatPage() {
   const [chat, setChat] = useState([]);
   const [message, setMessage] = useState("");
   const [videoCallActive, setVideoCallActive] = useState(false);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -72,27 +75,41 @@ export default function ChatPage() {
     setVideoCallActive(true);
   };
 
+  const goToAiChat = () => {
+    navigate("/ai-chat");
+  };
+
   return (
     <div className="flex flex-col md:flex-row h-screen">
       {/* Sidebar */}
-      <div className="w-full md:w-1/4 border-r p-4 overflow-y-auto bg-white">
+      <div className="w-full md:w-1/4 border-r p-4 overflow-y-auto bg-white flex flex-col">
         <h2 className="text-xl font-bold mb-4">Contacts</h2>
-        {users
-          .filter((u) => String(u._id) !== String(currentUserId))
-          .map((user) => (
-            <div
-              key={user._id}
-              onClick={() => {
-                setSelectedUserId(user._id);
-                setVideoCallActive(false);
-              }}
-              className={`cursor-pointer p-2 rounded ${
-                selectedUserId === user._id ? "bg-blue-100" : ""
-              }`}
-            >
-              {user.email}
-            </div>
-          ))}
+
+        <button
+          onClick={goToAiChat}
+          className="mb-4 px-3 py-2 bg-purple-600 text-white rounded text-sm"
+        >
+          🤖 Chat with AI
+        </button>
+
+        <div className="space-y-2">
+          {users
+            .filter((u) => String(u._id) !== String(currentUserId))
+            .map((user) => (
+              <div
+                key={user._id}
+                onClick={() => {
+                  setSelectedUserId(user._id);
+                  setVideoCallActive(false);
+                }}
+                className={`cursor-pointer p-2 rounded ${
+                  selectedUserId === user._id ? "bg-blue-100" : ""
+                }`}
+              >
+                {user.email}
+              </div>
+            ))}
+        </div>
       </div>
 
       {/* Chat Section */}

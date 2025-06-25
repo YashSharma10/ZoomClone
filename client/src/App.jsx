@@ -5,6 +5,7 @@ import Signup from "./pages/Signup";
 import ProtectedRoute from "./ProtectedRoute";
 import VideoCall from "./pages/VideoCall";
 import Chat from "./pages/Chat";
+import AiChatPage from "./pages/Aichat";
 
 export default function App() {
   return (
@@ -19,6 +20,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Chat />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ai-chat"
+        element={
+          <ProtectedRoute>
+            <AiChatPage />
           </ProtectedRoute>
         }
       />
