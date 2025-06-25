@@ -1,197 +1,157 @@
-import React, { useEffect, useRef, useState } from "react";
-import io from "socket.io-client";
+import React, { useRef, useEffect, useState } from "react";
+import socket from "../socket";
 
-const socket = io("http://localhost:5000");
-
-export default function VideoCall() {
+export default function VideoCall({ currentUserId, selectedUserId, onClose }) {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
-  const peerConnectionRef = useRef(null);
-  const [roomId, setRoomId] = useState("");
-  const [joined, setJoined] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [videoEnabled, setVideoEnabled] = useState(true);
-  const [audioEnabled, setAudioEnabled] = useState(true);
-  const localStreamRef = useRef(null);
+  const peerRef = useRef(null);
+  const [callActive, setCallActive] = useState(false);
 
-  const mediaConstraints = {
-    audio: true,
-    video: true,
-  };
+  useEffect(() => {
+    if (!currentUserId || !selectedUserId) return;
 
-  const startCall = async () => {
-    const localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
-    localStreamRef.current = localStream;
-    localVideoRef.current.srcObject = localStream;
+    socket.on("incoming-call", async ({ from, offer }) => {
+      if (from === selectedUserId) {
+        const accept = window.confirm("Incoming video call. Accept?");
+        if (accept) {
+          await setupMedia();
+          const peer = createPeer();
+          peer.setRemoteDescription(new RTCSessionDescription(offer));
 
-    peerConnectionRef.current = new RTCPeerConnection();
+          const answer = await peer.createAnswer();
+          await peer.setLocalDescription(answer);
+          socket.emit("answer-call", {
+            to: from,
+            answer,
+          });
 
-    localStream.getTracks().forEach((track) => {
-      peerConnectionRef.current.addTrack(track, localStream);
+          setCallActive(true);
+        }
+      }
     });
 
-    peerConnectionRef.current.ontrack = (event) => {
+    socket.on("call-answered", async ({ answer }) => {
+      await peerRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+
+    socket.on("ice-candidate", async ({ candidate }) => {
+      try {
+        await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error("Error adding received ice candidate", err);
+      }
+    });
+
+    socket.on("call-ended", () => {
+      endCall();
+    });
+
+    return () => {
+      socket.off("incoming-call");
+      socket.off("call-answered");
+      socket.off("ice-candidate");
+      socket.off("call-ended");
+    };
+  }, [selectedUserId]);
+
+  const setupMedia = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideoRef.current.srcObject = stream;
+    return stream;
+  };
+
+  const createPeer = () => {
+    const peer = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
+
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit("ice-candidate", {
+          to: selectedUserId,
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    peer.ontrack = (event) => {
       remoteVideoRef.current.srcObject = event.streams[0];
     };
 
-    peerConnectionRef.current.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit("ice-candidate", { roomId, candidate: event.candidate });
-      }
-    };
+    peerRef.current = peer;
+    return peer;
   };
 
-  const joinRoom = () => {
-    if (roomId.trim() !== "") {
-      socket.emit("join", roomId);
-      setJoined(true);
-      startCall();
+  const startCall = async () => {
+    const stream = await setupMedia();
+    const peer = createPeer();
+
+    stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+
+    socket.emit("call-user", {
+      to: selectedUserId,
+      offer,
+      callType: "video",
+    });
+
+    setCallActive(true);
+  };
+
+  const endCall = () => {
+    peerRef.current?.close();
+    peerRef.current = null;
+    setCallActive(false);
+
+    if (localVideoRef.current?.srcObject) {
+      localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
     }
+
+    socket.emit("end-call", { to: selectedUserId });
+    if (onClose) onClose();
   };
-
-  const toggleVideo = () => {
-    const videoTrack = localStreamRef.current.getVideoTracks()[0];
-    videoTrack.enabled = !videoTrack.enabled;
-    setVideoEnabled(videoTrack.enabled);
-  };
-
-  const toggleAudio = () => {
-    const audioTrack = localStreamRef.current.getAudioTracks()[0];
-    audioTrack.enabled = !audioTrack.enabled;
-    setAudioEnabled(audioTrack.enabled);
-  };
-
-  const sendMessage = () => {
-    if (newMessage.trim() !== "") {
-      socket.emit("chat-message", { roomId, message: newMessage });
-      setMessages((prev) => [...prev, { sender: "You", text: newMessage }]);
-      setNewMessage("");
-    }
-  };
-
-  const startScreenShare = async () => {
-    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-    const screenTrack = screenStream.getVideoTracks()[0];
-
-    const sender = peerConnectionRef.current
-      .getSenders()
-      .find((s) => s.track.kind === "video");
-
-    sender.replaceTrack(screenTrack);
-
-    screenTrack.onended = async () => {
-      const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      sender.replaceTrack(cameraStream.getVideoTracks()[0]);
-    };
-  };
-
-  useEffect(() => {
-    socket.on("offer", async ({ offer }) => {
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await peerConnectionRef.current.createAnswer();
-      await peerConnectionRef.current.setLocalDescription(answer);
-      socket.emit("answer", { roomId, answer });
-    });
-
-    socket.on("answer", async ({ answer }) => {
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-    });
-
-    socket.on("ice-candidate", ({ candidate }) => {
-      peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-    });
-
-    socket.on("user-joined", async () => {
-      const offer = await peerConnectionRef.current.createOffer();
-      await peerConnectionRef.current.setLocalDescription(offer);
-      socket.emit("offer", { roomId, offer });
-    });
-
-    socket.on("chat-message", ({ message }) => {
-      setMessages((prev) => [...prev, { sender: "Other", text: message }]);
-    });
-
-    return () => socket.disconnect();
-  }, [roomId]);
 
   return (
-    <div className="p-6">
-      <h2 className="text-xl font-bold mb-4">Video Call Room</h2>
-      {!joined ? (
-        <div className="mb-4">
-          <input
-            type="text"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-            className="border p-2 mr-2"
-            placeholder="Enter Room ID"
-          />
-          <button
-            onClick={joinRoom}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Join
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={startScreenShare}
-              className="bg-green-600 text-white px-4 py-2 rounded"
-            >
-              Share Screen
-            </button>
-            <button
-              onClick={toggleVideo}
-              className="bg-yellow-600 text-white px-4 py-2 rounded"
-            >
-              {videoEnabled ? "Turn Off Video" : "Turn On Video"}
-            </button>
-            <button
-              onClick={toggleAudio}
-              className="bg-purple-600 text-white px-4 py-2 rounded"
-            >
-              {audioEnabled ? "Mute" : "Unmute"}
-            </button>
-          </div>
-        </>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <video ref={localVideoRef} autoPlay muted playsInline className="w-full border" />
-        <video ref={remoteVideoRef} autoPlay playsInline className="w-full border" />
+    <div className="mt-4 border rounded-lg bg-white shadow-md p-4 w-full">
+      <div className="flex flex-col md:flex-row justify-center gap-4 mb-4">
+        <video
+          ref={localVideoRef}
+          autoPlay
+          muted
+          className="w-full md:w-1/2 rounded border aspect-video"
+        />
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          className="w-full md:w-1/2 rounded border aspect-video"
+        />
       </div>
 
-      {/* Chat Section */}
-      {joined && (
-        <div className="border-t pt-4">
-          <h3 className="text-lg font-semibold mb-2">Chat</h3>
-          <div className="h-40 overflow-y-auto border p-2 mb-2 bg-white text-black rounded">
-            {messages.map((msg, idx) => (
-              <div key={idx}>
-                <strong>{msg.sender}: </strong> {msg.text}
-              </div>
-            ))}
-          </div>
-          <div className="flex">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              className="border p-2 flex-grow mr-2 rounded"
-              placeholder="Type a message"
-            />
-            <button
-              onClick={sendMessage}
-              className="bg-blue-500 text-white px-4 py-2 rounded"
-            >
-              Send
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="flex flex-wrap justify-center gap-4">
+        {!callActive ? (
+          <button
+            onClick={startCall}
+            className="bg-green-500 text-white px-4 py-2 rounded"
+          >
+            Start Call
+          </button>
+        ) : (
+          <button
+            onClick={endCall}
+            className="bg-red-500 text-white px-4 py-2 rounded"
+          >
+            End Call
+          </button>
+        )}
+        <button
+          onClick={endCall}
+          className="bg-gray-500 text-white px-4 py-2 rounded"
+        >
+          Close
+        </button>
+      </div>
     </div>
   );
 }
